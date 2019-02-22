@@ -37,24 +37,40 @@ macro_rules! hook {
             }
 
             #[no_mangle]
-            pub unsafe extern fn $real_fn ($($v: $t),*) -> $r {
+            pub unsafe extern "C" fn $real_fn ($($v: $t),*) -> $r {
                 $body
             }
         )+
     };
 }
 
-// hook! {
-//     fn free(p: *mut libc::c_void) -> () {
-//         libc_println!("> free({:?})", p);
-//         free__next(p)
-//     }
+macro_rules! hook_gl {
+    ($(fn $real_fn:ident($($v:ident : $t:ty),*) -> $r:ty $body:block)+) => {
+        $(
+            paste::item! {
+                const_cstr! {
+                    [<$real_fn __name>] = stringify!($real_fn);
+                }
 
-//     fn malloc(s: libc::size_t) -> *mut libc::c_void {
-//         libc_println!("> malloc({})", s);
-//         malloc__next(s)
-//     }
-// }
+                lazy_static! {
+                    static ref [<$real_fn __next>]: extern "C" fn ($($v: $t),*) -> $r = unsafe {
+                        libc_println!("getting proc address for {}", stringify!([<$real_fn __name>]));
+                        let sym = glXGetProcAddressARB__next([<$real_fn __name>].as_ptr());
+                        if sym.is_null() {
+                            libc_println!("uh oh, GetProcAddress returned null :(");
+                        }
+                        ::std::mem::transmute(sym)
+                    };
+                }
+            }
+
+            #[allow(non_snake_case)]
+            unsafe extern "C" fn $real_fn ($($v: $t),*) -> $r {
+                $body
+            }
+        )+
+    };
+}
 
 hook! {
     fn dlopen(filename: *mut libc::c_char, flags: libc::c_int) -> *mut libc::c_void {
@@ -65,7 +81,6 @@ hook! {
             libc_println!("> dlopen({}, {})", name, flags);
 
             if name == "libGL.so.1" {
-                libc_println!("> loading OpenGL!");
                 // load symbols into our space
                 dlopen__next(filename, libc::RTLD_NOW|libc::RTLD_GLOBAL);
 
@@ -77,18 +92,23 @@ hook! {
         dlopen__next(filename, flags)
     }
 
-    fn glXGetProcAddressARB(symbol: *mut libc::c_char) -> *mut libc::c_void {
+    fn glXGetProcAddressARB(symbol: *const libc::c_char) -> *mut libc::c_void {
         if !symbol.is_null() {
             let symbol = CStr::from_ptr(symbol).to_string_lossy().into_owned();
             libc_println!("> glXGetProcAddressARB({})", symbol);
+
+            if symbol == "glXSwapBuffers" {
+                return glXSwapBuffers as *mut libc::c_void
+            }
         }
 
         glXGetProcAddressARB__next(symbol)
     }
+}
 
+hook_gl! {
     fn glXSwapBuffers(display: *mut libc::c_void, drawable: *mut libc::c_void) -> () {
         libc_println!("> glXSwapBuffers!");
         glXSwapBuffers__next(display, drawable)
     }
 }
-
