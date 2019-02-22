@@ -1,0 +1,17 @@
+[package]
+name = "rustff"
+version = "0.1.0"
+authors = ["Amos Wenger <amoswenger@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+
+[dependencies]
+ctor = "0.1.7"
+libc = "0.2.48"
+libc-print = "0.1.7"
+lazy_static = "1.2.0"
+const-cstr = "0.1"
