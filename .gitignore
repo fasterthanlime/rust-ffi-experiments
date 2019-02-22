@@ -1,3 +1,4 @@
 /target
+/uses-puts*
 **/*.rs.bk
 Cargo.lock
