@@ -1,4 +1,4 @@
 /target
-/uses-puts*
+/testbed*
 **/*.rs.bk
 Cargo.lock

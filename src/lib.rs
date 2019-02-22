@@ -43,15 +43,30 @@ macro_rules! hook {
     };
 }
 
-hook! {
-    fn free(p: *mut libc::c_void) -> () {
-        libc_println!("> free({:?})", p);
-        free__next(p)
-    }
+// hook! {
+//     fn free(p: *mut libc::c_void) -> () {
+//         libc_println!("> free({:?})", p);
+//         free__next(p)
+//     }
 
-    fn malloc(s: libc::size_t) -> *mut libc::c_void {
-        libc_println!("> malloc({})", s);
-        malloc__next(s)
+//     fn malloc(s: libc::size_t) -> *mut libc::c_void {
+//         libc_println!("> malloc({})", s);
+//         malloc__next(s)
+//     }
+// }
+
+#[repr(C)]
+pub struct timeval {
+    tv_sec: libc::time_t,
+    tv_usec: libc::suseconds_t,
+}
+
+hook! {
+    fn gettimeofday(tp: *mut timeval, tzp: *mut libc::c_void) -> libc::c_int {
+        libc_println!("> gettimeofday()");
+        let ret = gettimeofday__next(tp, tzp);
+        (*tp).tv_usec = 0;
+        ret
     }
 }
 
